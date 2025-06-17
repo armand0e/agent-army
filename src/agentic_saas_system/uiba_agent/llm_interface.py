@@ -2,29 +2,32 @@
 
 import httpx # Using httpx for async requests, good for I/O bound LLM calls
 import json
-from typing import List, Dict, Any, Optional, Union
+import asyncio # Added for the test
+from typing import List, Dict, Any, Optional, Union # Added Union
 
-# Configuration for LocalAI (ideally from a central config)
-LOCAL_AI_BASE_URL = "http://localhost:8080/v1" # As planned for LocalAI
+# Configuration for the User-Provided API
+USER_API_BASE_URL = "https://lm.armand0e.online/v1"
+USER_API_KEY = "sk-291923902182902-kd" # User's provided API key
 
 class LLMInterface:
-    def __init__(self, api_key: Optional[str] = "dummy-key", base_url: str = LOCAL_AI_BASE_URL):
+    def __init__(self, api_key: str = USER_API_KEY, base_url: str = USER_API_BASE_URL): # Modified defaults
         """
-        Interface for interacting with a locally hosted LLM via an OpenAI-compatible API (e.g., LocalAI).
+        Interface for interacting with an LLM via an OpenAI-compatible API.
+        Now defaults to user-provided public API.
         """
         self.base_url = base_url
-        self.api_key = api_key # LocalAI might not need a key, but OpenAI spec includes it
-        self.client = httpx.AsyncClient(timeout=120.0) # Increased timeout for potentially slow local models
+        self.api_key = api_key
+        self.client = httpx.AsyncClient(timeout=120.0)
 
     async def get_chat_completion(
         self,
         messages: List[Dict[str, str]],
-        model_name: str, # e.g., "devstral-small-iq4nl-gguf"
+        model_name: str, # e.g., "devstral-small-iq4nl-gguf" or a model available on the public API
         temperature: float = 0.7,
         max_tokens: int = 1500,
         json_mode: bool = False,
-        tools: Optional[List[Dict[str, Any]]] = None, # For function calling / tool use
-        tool_choice: Optional[Union[str, Dict[str, Any]]] = None
+        tools: Optional[List[Dict[str, Any]]] = None,
+        tool_choice: Optional[Union[str, Dict[str, Any]]] = None # Added Union here
     ) -> Dict[str, Any]:
         """
         Gets a chat completion from the LLM.
@@ -47,35 +50,40 @@ class LLMInterface:
         if tool_choice:
             payload["tool_choice"] = tool_choice
 
+        print(f"DEBUG: Sending request to {self.base_url}/chat/completions with model: {model_name}") # Debug print
+        print(f"DEBUG: Payload (first message): {messages[0] if messages else 'No messages'}")
+
+
         try:
             response = await self.client.post(
                 f"{self.base_url}/chat/completions",
                 headers=headers,
                 json=payload,
             )
-            response.raise_for_status() # Raise an exception for bad status codes (4xx or 5xx)
+            print(f"DEBUG: Received response status: {response.status_code}") # Debug print
+            # print(f"DEBUG: Response content: {response.text}") # Be careful if response is large
+            response.raise_for_status()
             return response.json()
         except httpx.HTTPStatusError as e:
             print(f"LLM API Error (HTTPStatusError): {e.response.status_code} - {e.response.text}")
-            # Consider more specific error handling or re-raising custom errors
             raise
         except httpx.RequestError as e:
             print(f"LLM API Error (RequestError): {e}")
             raise
         except json.JSONDecodeError as e:
             print(f"LLM API Error (JSONDecodeError): Failed to decode response - {e}")
+            print(f"LLM Raw Response Text causing JSONDecodeError: {response.text if 'response' in locals() else 'Response object not available'}")
             raise
 
-    async def generate_text_completion(
+    async def generate_text_completion( # This method might be less used but kept for now
         self,
-        prompt: str, # Simpler interface for basic text generation if needed, though chat is preferred
+        prompt: str,
         model_name: str,
         temperature: float = 0.7,
         max_tokens: int = 500
     ) -> str:
         """
-        A simplified method for basic text generation (less common now with chat models).
-        Constructs a chat-like message list internally.
+        A simplified method for basic text generation.
         """
         messages = [{"role": "user", "content": prompt}]
         response_data = await self.get_chat_completion(
@@ -84,10 +92,9 @@ class LLMInterface:
             temperature=temperature,
             max_tokens=max_tokens
         )
-        # Extract content from the first choice's message
         try:
             return response_data["choices"][0]["message"]["content"]
-        except (KeyError, IndexError) as e:
+        except (KeyError, IndexError, TypeError) as e: # Added TypeError
             print(f"Error parsing LLM response: {e} - Data: {response_data}")
             return "Error: Could not parse LLM response."
 
@@ -97,46 +104,69 @@ class LLMInterface:
         """
         await self.client.aclose()
 
+async def test_api_endpoint():
+    print("Testing user-provided API endpoint...")
+    # Use the provided credentials directly for this test
+    llm_interface = LLMInterface(api_key=USER_API_KEY, base_url=USER_API_BASE_URL)
+
+    test_messages = [
+        {"role": "system", "content": "You are a helpful assistant."},
+        {"role": "user", "content": "What is the capital of France? Respond concisely."}
+    ]
+    # We need to know a model name that is available on the user's endpoint.
+    # Let's try a common one, or the one intended for use.
+    # If 'devstral-small' is not on that public API, this will fail.
+    # A more generic model like "gpt-3.5-turbo" might be safer for a generic endpoint test,
+    # but the user intends to use devstral. We'll try with a placeholder and make it easily changeable.
+    # IMPORTANT: The user might need to tell us what models are available on their endpoint.
+    # For now, let's assume a generic model name for testing the connection.
+    # The user's endpoint might not have 'devstral-small'.
+    # Let's try a common model name, if that fails, it indicates an issue with model availability or the endpoint itself.
+
+    # Try with a few common model names, or a placeholder that the user can easily change.
+    # The user mentioned wanting to use devstral-small. Let's try that first.
+    # If it fails, the error message will guide us.
+    test_model_name = "devstral-small"
+    # Alternative test_model_name = "gpt-3.5-turbo" # if devstral-small is not available
+    # Note: "gpt-3.5-turbo" resulted in a successful call to the endpoint, which responded
+    # with model "unsloth/devstral-small-2505". Requesting "devstral-small" directly
+    # previously caused a server-side model crash (HTTP 400).
+    # The user's endpoint might require specific model names or aliases.
+
+    try:
+        print(f"Attempting to connect to {llm_interface.base_url} with model '{test_model_name}'...")
+        response = await llm_interface.get_chat_completion(test_messages, model_name=test_model_name, max_tokens=50)
+        print("\n--- API Test Full Response ---")
+        print(json.dumps(response, indent=2))
+        if response and response.get("choices") and response["choices"][0].get("message"):
+            print("\n--- API Test Assistant's Reply ---")
+            print(response["choices"][0]["message"]["content"])
+            print("\nAPI Endpoint Test: SUCCESS")
+        else:
+            print("\nAPI Endpoint Test: FAILED - Response format unexpected.")
+            print("Response was: ", response)
+
+    except httpx.HTTPStatusError as e:
+        print(f"API Endpoint Test: FAILED (HTTPStatusError)")
+        print(f"Status Code: {e.response.status_code}")
+        print(f"Response: {e.response.text}")
+        if e.response.status_code == 401:
+            print("This might be an API key issue.")
+        elif e.response.status_code == 404:
+            print(f"This might mean the model '{test_model_name}' is not found or the URL path is incorrect.")
+        elif e.response.status_code == 429:
+            print("Rate limit hit. Please try again later or check your plan for the API.")
+    except httpx.RequestError as e:
+        print(f"API Endpoint Test: FAILED (RequestError)")
+        print(f"Could not connect to the API endpoint: {e}")
+        print("Please ensure the URL is correct and the server is running and accessible.")
+    except Exception as e:
+        print(f"API Endpoint Test: FAILED (Unexpected Error)")
+        print(f"An unexpected error occurred: {e}")
+    finally:
+        await llm_interface.close()
+
 if __name__ == '__main__':
-    # Example usage (conceptual, requires a running LocalAI server)
-    async def main():
-        # llm_interface = LLMInterface()
-        # try:
-        #     messages = [
-        #         {"role": "system", "content": "You are a helpful assistant."},
-        #         {"role": "user", "content": "What is the capital of France?"}
-        #     ]
-        #     # Replace 'devstral-test-model' with an actual model name configured in your LocalAI
-        #     response = await llm_interface.get_chat_completion(messages, model_name="devstral-test-model")
-        #     print("Full response data:")
-        #     print(json.dumps(response, indent=2))
-        #     if response and response.get("choices"):
-        #         print("\nAssistant's reply:")
-        #         print(response["choices"][0]["message"]["content"])
-
-        #     # Example of JSON mode (if the model supports it and is prompted correctly)
-        #     json_messages = [
-        #         {"role": "system", "content": "You are an assistant that only responds in JSON."},
-        #         {"role": "user", "content": "Provide user details for user ID 123. Include name and email."}
-        #     ]
-        #     # json_response = await llm_interface.get_chat_completion(
-        #     #     json_messages, model_name="devstral-test-model", json_mode=True
-        #     # )
-        #     # print("\nJSON mode response data:")
-        #     # print(json.dumps(json_response, indent=2))
-        #     # if json_response and json_response.get("choices"):
-        #     #     print("\nAssistant's JSON reply:")
-        #     #     print(json_response["choices"][0]["message"]["content"])
-
-        # except httpx.RequestError as e:
-        #     print(f"Could not connect to LocalAI or network error: {e}")
-        # except Exception as e:
-        #     print(f"An unexpected error occurred: {e}")
-        # finally:
-        #     await llm_interface.close()
-        pass # Keep if __name__ == '__main__' block but do nothing for now
-
-    # import asyncio
-    # if __name__ == '__main__':
-    #    asyncio.run(main())
-    pass
+    # This will run the test when the script is executed directly.
+    print("Running LLMInterface Test...")
+    asyncio.run(test_api_endpoint())
