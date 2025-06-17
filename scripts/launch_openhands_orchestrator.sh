@@ -16,7 +16,7 @@ OPENHANDS_IMAGE_NAME="docker.all-hands.dev/all-hands-ai/openhands:0.43" # Use a 
 SANDBOX_IMAGE_NAME="docker.all-hands.dev/all-hands-ai/runtime:0.43-nikolaik" # Standard sandbox
 OPENHANDS_CONTAINER_NAME="openhands-orchestrator-instance"
 OPENHANDS_PORT="3000" # Default OpenHands UI port
-SANDBOX_VOLUMES="/home/armand0e/dev:/workspace:rw"
+SANDBOX_VOLUMES="/home/armand0e/dev/workspace:/workspace:rw"
 # Path to OpenHands state directory (on the host)
 # This will store settings.json and other state
 HOST_OPENHANDS_STATE_DIR="$HOME/.openhands-orchestrator-state"
