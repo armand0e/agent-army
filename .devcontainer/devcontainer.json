@@ -1,0 +1,97 @@
+{
+  "name": "Agentic SaaS Factory - Dev Environment",
+  "dockerFile": "Dockerfile", // Points to the Dockerfile we created in .devcontainer/
+  "workspaceFolder": "/workspace", // Sets the default directory VS Code opens inside the container
+  "workspaceMount": "source=${localWorkspaceFolder},target=/workspace,type=bind,consistency=cached", // Mounts the project directory
+
+  // Features to add to the dev container (VS Code Dev Containers feature)
+  // This is an alternative way to install Docker CLI and other tools if not done in Dockerfile.
+  // However, we've installed them in the Dockerfile for broader compatibility.
+  // "features": {
+  //   "ghcr.io/devcontainers/features/docker-outside-of-docker:1": {
+  //     "version": "latest"
+  //   },
+  //   "ghcr.io/devcontainers/features/node:1": {
+  //     "version": "lts" // If Node.js wasn't installed via nvm in Dockerfile
+  //   }
+  // },
+
+  // Configure VS Code settings specifically for this dev container
+  "settings": {
+    "python.defaultInterpreterPath": "/usr/local/bin/python", // Path to Python inside container (adjust if base image differs)
+    "python.linting.pylintEnabled": true,
+    "python.linting.enabled": true,
+    "python.formatting.provider": "black",
+    "editor.formatOnSave": true,
+    "[python]": {
+      "editor.defaultFormatter": "ms-python.black-formatter",
+      "editor.codeActionsOnSave": {
+        "source.organizeImports": "explicit"
+      }
+    },
+    "[markdown]": {
+      "editor.defaultFormatter": "yzhang.markdown-all-in-one",
+      "editor.wordWrap": "on",
+      "editor.quickSuggestions": {
+        "other": "on",
+        "comments": "on",
+        "strings": "on"
+      }
+    },
+    "terminal.integrated.defaultProfile.linux": "bash", // Ensure bash is default
+    "terminal.integrated.profiles.linux": {
+        "bash": {
+            "path": "/bin/bash",
+            "args": ["-l"] // Ensures .bashrc/.profile are sourced for nvm
+        }
+    }
+  },
+
+  // VS Code extensions to install automatically inside the dev container
+  "extensions": [
+    "ms-python.python", // Python language support
+    "ms-python.vscode-pylint", // Pylint
+    "ms-python.black-formatter", // Black formatter
+    "ms-python.isort", // Isort for import sorting
+    "yzhang.markdown-all-in-one", // Markdown editing support
+    "ms-azuretools.vscode-docker", // Docker integration (viewing containers, images etc.)
+    "bierner.github-markdown-preview", // Better Markdown previews
+    "redhat.vscode-yaml", // YAML support (for config files)
+    "esbenp.prettier-vscode" // Prettier for other file types (if Node.js is used for it)
+  ],
+
+  // Mount the Docker socket to allow the dev container to use the host's Docker daemon
+  "mounts": [
+    "source=/var/run/docker.sock,target=/var/run/docker.sock,type=bind"
+    // If you are on Linux and experience permission issues with docker.sock:
+    // "source=/var/run/docker.sock,target=/var/run/docker-host.sock,type=bind",
+    // And then in the container: sudo ln -s /var/run/docker-host.sock /var/run/docker.sock
+    // Or ensure your vscode user in container is part of a group that can access host's docker.sock GID.
+  ],
+
+  // Environment variables to make available in the container
+  // Best practice is to use a .env file in the project root, which .devcontainer.json can reference.
+  // For now, we can set some defaults or placeholders.
+  // These can be overridden by user's local .env file or settings.
+  "remoteEnv": {
+    "PYTHONPATH": "/workspace/src:${containerEnv:PYTHONPATH}",
+    // Example: Default to user-provided API if not set elsewhere, but prompt user to use .env
+    // "OH_USER_LLM_BASE_URL": "https://lm.armand0e.online/v1",
+    // "OH_USER_LLM_API_KEY": "sk-291923902182902-kd"
+    // It's better to instruct users to set these in their own .env file which is gitignored.
+  },
+
+  // Commands to run after the container is created but before VS Code attaches.
+  // Useful for final setup steps.
+  "postCreateCommand": "echo 'Dev container created.' && sudo chown vscode /var/run/docker.sock || echo 'Failed to chown docker.sock, continuing...' && python --version && pip --version && git --version && docker --version && node --version || echo 'Node not found or not installed via nvm in postCreate.' && npm --version || echo 'npm not found.'",
+
+  // Command to run when VS Code attaches to the container.
+  // "postAttachCommand": {
+  //  "server": "echo 'VS Code attached to dev container.'"
+  // },
+
+  // Set to true to connect as root instead of the default non-root user.
+  // "remoteUser": "root" // Generally not recommended unless necessary. We created 'vscode' user.
+
+  "shutdownAction": "stopContainer" // Stop the container when VS Code window is closed.
+}

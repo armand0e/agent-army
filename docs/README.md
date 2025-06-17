@@ -1,45 +1,68 @@
-# Agentic SaaS Factory - Design Phase
+# Agentic SaaS Factory - Design & Development Environment
 
-This repository contains the design documents and initial structural outlines for an Agentic SaaS Factory – a multi-agent AI system envisioned to automate the software development lifecycle.
+This repository contains the design documents, initial structural outlines, and development environment setup for an Agentic SaaS Factory – a multi-agent AI system envisioned to automate the software development lifecycle.
 
-## Overview
+## Project Status
 
-The system is designed around a collection of specialized AI agents that collaborate to perform tasks ranging from requirements gathering to deployment and monitoring. This project is currently in the design and conceptualization phase.
+This project is currently in the design and early conceptual implementation phase. The primary focus has been on:
+1.  Designing the overall multi-agent architecture.
+2.  Detailing the roles and responsibilities of individual specialized AI agents.
+3.  Setting up a development environment using VS Code Dev Containers.
+4.  Designing and conceptually testing a component where `OpenHands` acts as a user-facing orchestrator for `open-codex`-like workflows.
 
-Key components and concepts include:
-*   **Specialized AI Agents:** UIBA, MPA, FDA, BDA, DMA, IDA, QATA, ERA. Design documents for each are located in `docs/agents/`.
-*   **Shared Knowledge Base (SKB):** A central repository for all project information, agent knowledge, and artifacts. Design: `docs/shared_components/knowledge_base/DESIGN.md`.
-*   **Inter-Agent Communication (IAC):** Protocols and mechanisms for agents to collaborate. Design: `docs/shared_components/communication/DESIGN.md`.
-*   **Orchestration Logic:** The central brain managing workflows and agent coordination. Design: `docs/orchestrator/DESIGN.md`.
-*   **Local LLM Serving:** Intended use of `mudler/LocalAI` to serve models like `devstral-small` (though current testing uses a user-provided public API). Setup prerequisites: `docs/SETUP_PREREQUISITES.md`.
-*   **OpenHands for Orchestration:** A component designed to use `OpenHands` as a user-facing orchestrator for `open-codex`-like operations.
+## Key Architectural Components (Designs)
 
-## Current Focus: OpenHands Orchestrator Component
+Detailed design documents for each component can be found in the `docs/` directory:
 
-A recent development focus has been on designing a system where `OpenHands` acts as an orchestrator for `open-codex`-like workflows.
+*   **Specialized AI Agents (`docs/agents/`):**
+    *   UIBA (User Interaction & Briefing Agent)
+    *   MPA (Module & API Design Agent)
+    *   FDA (Feature Development Agent)
+    *   BDA (Bug Detection & Debugging Agent)
+    *   DMA (Deployment & Monitoring Agent)
+    *   IDA (Integration & Data Flow Agent)
+    *   QATA (Quality Assurance & Testing Agent)
+    *   ERA (Evolutionary Refinement Agent)
+*   **Shared Components (`docs/shared_components/`):**
+    *   Shared Knowledge Base (SKB)
+    *   Inter-Agent Communication (IAC)
+    *   Preconfigured Workspace (for `open-codex-flow` within OpenHands)
+    *   Inter-`open-codex`-Operation Context Sharing
+*   **Orchestration Logic:**
+    *   Overall System Orchestrator (`docs/orchestrator/DESIGN.md`)
+    *   `OpenHands` as an Orchestrator Agent (`docs/orchestrator/OPENHANDS_ORCHESTRATOR_DESIGN.md`)
 
-*   **Launch Script:** `scripts/launch_openhands_orchestrator.sh`
-*   **Usage Guide:** `docs/usage/RUNNING_ORCHESTRATOR.md`
-*   **Conceptual Example:** `docs/examples/SIMPLE_FLOW_EXAMPLE.md`
-*   **Design - OpenHands Orchestrator Agent Logic:** `docs/orchestrator/OPENHANDS_ORCHESTRATOR_DESIGN.md`
-*   **Design - Preconfigured Workspace for `open-codex-flow`:** `docs/shared_components/preconfigured_workspace/DESIGN.md`
-*   **Design - Inter-`open-codex`-Operation Context Sharing:** `docs/shared_components/context_sharing/OPEN_CODEX_OPERATION_CONTEXT.md`
+## Development Environment Setup (Dev Container)
+
+To ensure a consistent and easy-to-set-up development environment, this project uses VS Code Dev Containers.
+
+*   **Setup Guide:** Please refer to **[Development Container Setup Guide](./development/DEV_CONTAINER_SETUP.md)** for detailed instructions on how to get started.
+*   **Prerequisites:** Docker Desktop / Docker Engine, VS Code, and the "Remote - Containers" VS Code extension.
+
+## Current Focus: `OpenHands` Orchestrator Component
+
+The most recent work involves a component where `OpenHands` is configured to act as an orchestrator for `open-codex`-like workflows, using a user-provided LLM endpoint.
+
+*   **Launch Script:** `scripts/launch_openhands_orchestrator.sh` (run from within the dev container or a similarly configured environment).
+*   **Usage Guide for this component:** `docs/usage/RUNNING_ORCHESTRATOR.md`.
+*   **Conceptual Example Flow:** `docs/examples/SIMPLE_FLOW_EXAMPLE.md`.
 
 ## Repository Structure
 
-*   `src/`: Source code for agents and shared components (currently contains UIBA outline).
-*   `docs/`: All design documents and user guides.
-*   `configs/`: Configuration templates and files.
+*   `.devcontainer/`: Configuration files (`Dockerfile`, `devcontainer.json`) for the VS Code Dev Container.
+*   `src/`: Source code for agents and shared components (currently contains an initial outline for the UIBA agent).
+*   `docs/`: All design documents, usage guides, and examples.
+*   `configs/`: Configuration templates (e.g., for OpenHands settings).
 *   `scripts/`: Utility and launch scripts.
-*   `tests/`: Placeholder for future tests.
+*   `requirements.txt`: Root Python dependencies for the dev container and project.
 
 ## Next Steps (Conceptual)
 
-Following this design phase, next steps would involve:
-1.  Setting up and validating the LLM environment (LocalAI or continued use of public API).
-2.  Implementing the `open_codex_lib`.
-3.  Implementing the `OpenHands` Orchestrator Agent's ability to use `open_codex_lib`.
-4.  Iteratively developing and testing the full `open-codex-flow` with more complex examples.
-5.  Gradually implementing the other specialized agents and the main orchestrator.
+Following the setup of the dev environment and the design phase:
+1.  Validate the `OpenHands` orchestrator proof-of-concept by manually running the example flow.
+2.  Implement the `open_codex_lib` as a Python library within the preconfigured workspace.
+3.  Refine the `OpenHands` Orchestrator Agent logic to robustly use `open_codex_lib`.
+4.  Iteratively develop and test more complex `open-codex-flow` examples.
+5.  Begin phased implementation of other specialized agents (e.g., UIBA, MPA) and the main system orchestrator, integrating them with the Shared Knowledge Base and Inter-Agent Communication framework.
 
-Refer to the individual `DESIGN.md` files in the `docs` directory for detailed information on each component.
+Refer to the individual `DESIGN.md` files for detailed information on each component.
