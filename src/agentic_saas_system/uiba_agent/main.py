@@ -1,24 +1,24 @@
 # src/agentic_saas_system/uiba_agent/main.py
 
 import asyncio
-import uuid # For generating session IDs
+import uuid
+import datetime # For timestamp in UserTurnInput
+import httpx # For specific error handling
+import traceback # For printing full tracebacks
 
 from .uiba_core import UIBAgent
-from .llm_interface import LLMInterface
-from .data_models import UserTurnInput, UIMessage
-
-# Conceptual placeholder for SharedKnowledgeBaseClient
-# from ..shared_knowledge_base.client import SharedKnowledgeBaseClient
+from .llm_interface import LLMInterface, USER_API_BASE_URL, USER_API_KEY # Import credentials for clarity
+from .data_models import UserTurnInput, UIMessage, ProjectBrief # Added ProjectBrief for the --generate_brief command
 
 class MockSKBClient:
     """A mock SKB client for standalone UIBA testing."""
-    async def store_document(self, doc_id: str, data: dict):
-        print(f"MOCK SKB: Storing document '{doc_id}': {data.get('project_name', 'N/A')}")
+    async def store_document(self, doc_id: str, data: dict): # data should be Dict from Pydantic model_dump
+        print(f"MOCK SKB: Storing document '{doc_id}': Project Name '{data.get('project_name', 'N/A')}'")
         return True
 
     async def retrieve_document(self, doc_id: str):
         print(f"MOCK SKB: Retrieving document '{doc_id}'")
-        return None # Or some mock data
+        return None
 
 async def run_uiba_interactive_session():
     """
@@ -26,43 +26,44 @@ async def run_uiba_interactive_session():
     """
     session_id = str(uuid.uuid4())
     print(f"Starting UIBA Interactive Session (ID: {session_id})")
+    print(f"Using API Endpoint: {USER_API_BASE_URL}") # Corrected f-string
     print("Type 'exit' or 'quit' to end the session.")
-    print("Type '--generate_brief' to attempt generating and storing the project brief.")
+    print("Type '--generate_brief' to attempt generating a (basic) project brief.")
     print("-" * 30)
 
-    # Initialize dependencies
-    # In a real system, LLMInterface might take API keys/base_urls from config
-    llm_interface = LLMInterface()
-
-    # Using MockSKBClient for this standalone example
-    # skb_client = SharedKnowledgeBaseClient(...) # If we had a real one
+    # Initialize dependencies using user's public API credentials
+    llm_interface = LLMInterface(api_key=USER_API_KEY, base_url=USER_API_BASE_URL)
     skb_client = MockSKBClient()
 
-    # Specify the model UIBA should use (should come from config ideally)
-    uiba_model = "devstral-small-iq4nl-gguf" # Example model name for LocalAI
-
-    uiba_agent = UIBAgent(llm_interface=llm_interface, skb_client=skb_client, uiba_model_name=uiba_model)
+    # UIBAgent now defaults to "gpt-3.5-turbo", which should work with the user's endpoint for devstral.
+    uiba_agent = UIBAgent(llm_interface=llm_interface, skb_client=skb_client)
 
     try:
         initial_agent_message: UIMessage = await uiba_agent.start_interaction()
+        # uiba_agent.present_to_user(initial_agent_message) # main.py will print
         print(f"Agent: {initial_agent_message.text_content}")
 
+
         while True:
-            user_text = input("User: ")
+            user_text = input("User: ").strip()
+
+            if not user_text: # Handle empty input from user
+                continue
 
             if user_text.lower() in ["exit", "quit"]:
                 print("Exiting session.")
                 break
 
             if user_text.lower() == "--generate_brief":
-                print("Attempting to generate project brief...")
-                project_brief = await uiba_agent.generate_project_brief()
+                print("Attempting to generate (basic) project brief...")
+                # For this basic loop, generate_project_brief returns a minimal brief
+                project_brief: ProjectBrief = await uiba_agent.generate_project_brief()
                 if project_brief:
-                    print("\n--- Generated Project Brief ---")
+                    print("\n--- Generated Project Brief (Basic) ---")
+                    # Using model_dump_json for Pydantic models
                     print(project_brief.model_dump_json(indent=2))
                     print("--- End of Brief ---")
-                    # Attempt to store it (using mock SKB here)
-                    if skb_client: # Check if skb_client is not None
+                    if uiba_agent.skb_client: # Check if skb_client is configured in agent
                         stored = await uiba_agent.store_project_brief(project_brief)
                         if stored:
                             print("Project brief (mock) stored successfully.")
@@ -72,40 +73,41 @@ async def run_uiba_interactive_session():
                     print("No project brief generated yet or an error occurred.")
                 continue
 
-            current_timestamp = asyncio.get_event_loop().time() # Simple timestamp for example
+            # Use datetime for timestamp
+            current_timestamp_iso = datetime.datetime.now(datetime.timezone.utc).isoformat()
             user_turn = UserTurnInput(
                 text=user_text,
-                # multimodal_content can be added here if we simulate it
-                timestamp=str(current_timestamp)
+                timestamp=current_timestamp_iso
             )
 
             agent_response: UIMessage = await uiba_agent.handle_user_input(user_turn)
+            # uiba_agent.present_to_user(agent_response) # main.py will print
             print(f"Agent: {agent_response.text_content}")
-            if agent_response.message_type == "error":
-                print("An error occurred. Please try rephrasing or check logs.")
 
+            if agent_response.message_type == "error":
+                print(f"Agent Error: {agent_response.text_content}")
+
+    except httpx.RequestError as e:
+        print(f"CRITICAL: Could not connect to LLM API at {llm_interface.base_url}. Error: {e}")
+        print("Please ensure the API server is running, accessible, and the URL is correct.")
+        traceback.print_exc()
     except Exception as e:
         print(f"An unexpected error occurred during the session: {e}")
+        traceback.print_exc()
     finally:
-        print("Closing LLM interface.")
+        print("Closing LLM interface...")
         await llm_interface.close()
         print("UIBA session ended.")
 
 if __name__ == "__main__":
-    # This allows running the UIBA in a simple interactive command-line mode.
-    # For a full system, UIBA would be part of a larger orchestration.
-
-    # Note: This requires a LocalAI server to be running and accessible at
-    #       http://localhost:8080 with the specified model loaded.
-    #       If not, httpx.RequestError will occur.
-
-    print("UIBA Main - Standalone Interactive Mode")
-    print("Ensure LocalAI is running with the required models.")
+    print("UIBA Main - Standalone Interactive Mode (Basic Text Loop)")
+    print(f"Attempting to use API: {USER_API_BASE_URL}")
+    print("Ensure the API endpoint is operational and the model 'gpt-3.5-turbo' (or equivalent for devstral) is available.")
 
     try:
         asyncio.run(run_uiba_interactive_session())
     except KeyboardInterrupt:
         print("\nSession terminated by user.")
     except Exception as e:
-        # This top-level catch is for issues during asyncio.run itself or unhandled ones from the session
         print(f"Fatal error running UIBA session: {e}")
+        traceback.print_exc()
