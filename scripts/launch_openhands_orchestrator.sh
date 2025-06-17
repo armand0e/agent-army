@@ -16,7 +16,7 @@ OPENHANDS_IMAGE_NAME="docker.all-hands.dev/all-hands-ai/openhands:0.43" # Use a 
 SANDBOX_IMAGE_NAME="docker.all-hands.dev/all-hands-ai/runtime:0.43-nikolaik" # Standard sandbox
 OPENHANDS_CONTAINER_NAME="openhands-orchestrator-instance"
 OPENHANDS_PORT="3000" # Default OpenHands UI port
-
+SANDBOX_VOLUMES="/home/armand0e/dev:/workspace:rw"
 # Path to OpenHands state directory (on the host)
 # This will store settings.json and other state
 HOST_OPENHANDS_STATE_DIR="$HOME/.openhands-orchestrator-state"
@@ -95,7 +95,6 @@ launch_openhands() {
 
   # Workspace mount command part - uncomment and adjust HOST_WORKSPACE_DIR if needed
   # WORKSPACE_MOUNT_CMD="-v "$HOST_WORKSPACE_DIR":"$CONTAINER_WORKSPACE_DIR""
-  WORKSPACE_MOUNT_CMD="" # No explicit host workspace mount by default for this script
 
   # Note: The --add-host host.docker.internal:host-gateway is for the sandbox to reach the host if needed.
   # If your LLM is also running in Docker on the same machine, network settings might need adjustment
@@ -104,11 +103,13 @@ launch_openhands() {
 
   docker run -d --rm \
     -e SANDBOX_RUNTIME_CONTAINER_IMAGE="$SANDBOX_IMAGE_NAME" \
+    -e SANDBOX_USER_ID=$(id -u) \
+    -e SANDBOX_VOLUMES=$SANDBOX_VOLUMES \
     -e LOG_ALL_EVENTS=true \
     -v /var/run/docker.sock:/var/run/docker.sock \
     -v "$HOST_OPENHANDS_STATE_DIR":"$CONTAINER_OPENHANDS_STATE_DIR" \
     $WORKSPACE_MOUNT_CMD \
-    -p "$OPENHANDS_PORT":3000 \
+    -p "$OPENHANDS_PORT":8001 \
     --add-host host.docker.internal:host-gateway \
     --name "$OPENHANDS_CONTAINER_NAME" \
     "$OPENHANDS_IMAGE_NAME"
